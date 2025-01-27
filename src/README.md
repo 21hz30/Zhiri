@@ -29,7 +29,7 @@ cd [项目目录]
 2. 安装依赖
 
 bash
-npm install
+npm instal
 
 3. 运行开发服务器
 
@@ -129,6 +129,95 @@ src/
 
 - Node.js 18.0.0 或更高版本
 - npm 9.0.0 或更高版本
+
+## 部署说明
+
+### 1. Vercel 部署（推荐）
+
+最简单的部署方式，特别适合 Next.js 项目：
+
+1. 在 [Vercel](https://vercel.com) 注册账号
+2. 将代码推送到 GitHub 仓库
+3. 在 Vercel 中导入该 GitHub 仓库
+4. Vercel 会自动部署，并提供一个域名
+
+### 2. 自有服务器部署
+
+1. 构建项目
+```bash
+npm run build
+```
+
+2. 使用 PM2 运行（需要先安装 PM2：`npm install -g pm2`）
+```bash
+pm2 start npm --name "duty-system" -- start
+```
+
+3. 配置 Nginx 反向代理
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+### 3. Docker 部署
+
+1. 创建 Dockerfile：
+```dockerfile
+FROM node:18-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY . .
+RUN npm run build
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+2. 构建并运行 Docker 镜像：
+```bash
+docker build -t duty-system .
+docker run -p 3000:3000 duty-system
+```
+
+### 4. 静态导出部署
+
+如果不需要服务端功能，可以导出静态文件：
+
+1. 修改 next.config.js：
+```js
+module.exports = {
+  output: 'export'
+}
+```
+
+2. 构建静态文件：
+```bash
+npm run build
+```
+
+3. 将 out 目录下的文件部署到任意静态文件托管服务：
+- GitHub Pages
+- Netlify
+- 阿里云 OSS
+- 腾讯云 COS
+
+## 注意事项
+
+- 由于使用了 localStorage 存储数据，建议在正式环境使用后端数据库
+- 如果使用自有服务器，建议配置 SSL 证书
+- 建议配置环境变量管理敏感信息（如管理员密码）
+- 建议配置错误监控和日志系统
 
 
 
