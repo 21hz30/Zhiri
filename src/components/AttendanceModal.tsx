@@ -40,9 +40,10 @@ const AttendanceModal = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-      <div className="bg-white rounded-lg p-6 w-96">
-        <h2 className="text-xl font-semibold mb-4">考勤评分</h2>
+    <div className="fixed inset-0 flex items-center justify-center z-[9999]">
+      <div className="fixed inset-0 bg-black bg-opacity-50" onClick={onClose}></div>
+      <div className="bg-white rounded-lg p-6 w-[480px] relative z-[10000]">
+        <h2 className="text-xl font-semibold mb-4 text-[#2a63b7]">考勤评分</h2>
         
         <div className="space-y-4">
           <div>
@@ -57,15 +58,11 @@ const AttendanceModal = ({
                 <button
                   key={s}
                   onClick={() => setStatus(s)}
-                  className={`p-2 rounded ${
+                  className={`p-2 rounded transition-colors ${
                     status === s 
-                      ? 'ring-2 ring-[#2a63b7]' 
-                      : 'border'
+                      ? 'ring-2 ring-[#2a63b7] bg-[#2a63b7] text-white' 
+                      : 'border hover:bg-gray-50'
                   }`}
-                  style={{
-                    backgroundColor: status === s ? STATUS_COLORS[s] : 'white',
-                    color: status === s ? 'white' : 'black'
-                  }}
                 >
                   {s === 'present' ? '已到' : 
                    s === 'absent' ? '缺席' : 
@@ -83,7 +80,7 @@ const AttendanceModal = ({
               max="10"
               value={score}
               onChange={(e) => setScore(Number(e.target.value))}
-              className="w-full border rounded p-2"
+              className="w-full border rounded px-3 py-2 focus:outline-none focus:border-[#2a63b7]"
             />
           </div>
 
@@ -94,7 +91,7 @@ const AttendanceModal = ({
               min="0"
               value={penaltyDays}
               onChange={(e) => setPenaltyDays(Number(e.target.value))}
-              className="w-full border rounded p-2"
+              className="w-full border rounded px-3 py-2 focus:outline-none focus:border-[#2a63b7]"
             />
           </div>
 
@@ -103,24 +100,25 @@ const AttendanceModal = ({
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              className="w-full border rounded p-2 h-20"
+              className="w-full border rounded px-3 py-2 h-20 focus:outline-none focus:border-[#2a63b7]"
+              placeholder="请输入备注信息"
             />
           </div>
+        </div>
 
-          <div className="flex justify-end gap-2 mt-6">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border rounded hover:bg-gray-100"
-            >
-              取消
-            </button>
-            <button
-              onClick={handleSubmit}
-              className="px-4 py-2 bg-[#2a63b7] text-white rounded hover:bg-[#245091]"
-            >
-              保存
-            </button>
-          </div>
+        <div className="flex justify-end gap-2 mt-6">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border rounded hover:bg-gray-100"
+          >
+            取消
+          </button>
+          <button
+            onClick={handleSubmit}
+            className="px-4 py-2 bg-[#2a63b7] text-white rounded hover:bg-[#245091]"
+          >
+            保存
+          </button>
         </div>
       </div>
     </div>
