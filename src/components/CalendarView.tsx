@@ -13,8 +13,13 @@ const locales = {
 const localizer = dateFnsLocalizer({
   format,
   parse,
-  startOfWeek,
-  getDay,
+  startOfWeek: () => {
+    return startOfWeek(new Date(), { weekStartsOn: 1 });
+  },
+  getDay: (date: Date) => {
+    const day = getDay(date);
+    return day === 0 ? 6 : day - 1;
+  },
   locales,
 });
 
@@ -349,7 +354,7 @@ const CalendarView = ({
 
   // 将值日安排转换为日历事件格式
   const events = dutySchedule.flatMap(({ weekStart, group }) => {
-    // 生成这一周的所有日期（包括周末）
+    // 生成这一周的所有日期（从周一到周日）
     const weekEvents = [];
     for (let i = 0; i < 7; i++) {
       const currentDay = new Date(weekStart);
@@ -360,48 +365,38 @@ const CalendarView = ({
         continue;
       }
       
-      // 判断是否为周末
-      const isWeekend = i >= 5;
+      // 判断是否为周末（周六和周日）
+      const dayOfWeek = getDay(currentDay);
+      const isWeekend = dayOfWeek === 6 || dayOfWeek === 0;
       
-      if (isWeekend) {
-        // 周末只创建一个空的事件容器
-        weekEvents.push({
-          id: `${currentDay.toISOString()}-weekend`,
-          title: '周末值日',
-          start: currentDay,
-          end: currentDay,
-          isWeekend: true,
-          records: [],
-        });
-      } else {
-        // 工作日显示正常的值日组
-        const dayRecords = group.members.map(member => {
-          const record = attendanceRecords.find(
-            r => r.memberId === member.id && r.date === currentDay.toISOString()
-          );
-          return {
-            member,
-            status: record?.status || 'pending',
-            score: record?.score,
-            penaltyDays: record?.penaltyDays,
-          };
-        });
+      // 获取当天的考勤记录
+      const dayRecords = isWeekend ? [] : group.members.map(member => {
+        const record = attendanceRecords.find(
+          r => r.memberId === member.id && r.date === currentDay.toISOString()
+        );
+        return {
+          member,
+          status: record?.status || 'pending',
+          score: record?.score,
+          penaltyDays: record?.penaltyDays,
+        };
+      });
 
-        weekEvents.push({
-          id: `${currentDay.toISOString()}-${group.id}`,
-          title: `${group.name}`,
-          start: currentDay,
-          end: currentDay,
-          group,
-          records: dayRecords,
-        });
-      }
+      weekEvents.push({
+        id: `${currentDay.toISOString()}-${isWeekend ? 'weekend' : group.id}`,
+        title: isWeekend ? '周末值日' : group.name,
+        start: currentDay,
+        end: currentDay,
+        isWeekend,
+        group: isWeekend ? null : group,
+        records: dayRecords,
+      });
     }
     return weekEvents;
   });
 
   // 自定义事件渲染组件
-  const WeekendEvent = ({ event, isAdmin, extraDutyMembers, onAddExtraDuty }: any) => {
+  const DayEvent = ({ event, isAdmin, extraDutyMembers, onAddExtraDuty, onUpdateSchedule }: any) => {
     // 获取当前日期的额外值日人员
     const currentDateExtraMembers = extraDutyMembers?.filter((m: ExtraDutyMember) => {
       const eventDate = new Date(event.start);
@@ -424,14 +419,69 @@ const CalendarView = ({
     });
 
     return (
-      <div className="p-2 h-full bg-gray-50">
-        <div className="font-bold text-base mb-2 text-gray-500">
-          {format(event.start, 'EEEE', { locale: zhCN })}值日
+      <div className={`p-2 h-full ${event.isWeekend ? 'bg-gray-50' : 'bg-white'}`}>
+        <div className="font-bold text-base mb-2 text-gray-500 flex items-center justify-between">
+          <span>{format(event.start, 'EEEE', { locale: zhCN })}值日</span>
+          {!event.isWeekend && isAdmin && (
+            <select
+              value={event.group?.id || ''}
+              onChange={(e) => {
+                e.stopPropagation();
+                if (onUpdateSchedule) {
+                  const date = new Date(event.start);
+                  const dayOfWeek = date.getDay();
+                  const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+                  const monday = new Date(date);
+                  monday.setDate(date.getDate() + diff);
+                  monday.setHours(0, 0, 0, 0);
+                  onUpdateSchedule(monday, e.target.value);
+                }
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs border border-gray-200 rounded px-2 py-1 font-normal focus:outline-none focus:border-[#2a63b7]"
+            >
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {!event.isWeekend && !isAdmin && (
+            <span className="text-sm font-normal">{event.group?.name}</span>
+          )}
         </div>
 
-        {/* 值日人员列表 */}
+        {/* 固定值日组成员 */}
+        {!event.isWeekend && event.records && (
+          <div className="space-y-0.5 mb-2">
+            {event.records.map((record: any) => (
+              <div 
+                key={record.member.id}
+                className="flex items-center justify-between text-sm p-1 rounded bg-white hover:bg-gray-50"
+              >
+                <span className="font-medium text-xs">{record.member.name}</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm">
+                    {record.status === 'present' ? '✅' :
+                     record.status === 'absent' ? '❌' :
+                     record.status === 'late' ? '⚠️' : ''}
+                  </span>
+                  {record.penaltyDays ? (
+                    <span className="text-[10px] bg-red-500 text-white px-1 rounded">
+                      +{record.penaltyDays}
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 额外值日人员 */}
         {extraMemberDetails.length > 0 && (
           <div className="space-y-1">
+            <div className="text-[10px] text-gray-500 mb-0.5">额外值日人员</div>
             {extraMemberDetails.map(({ member, group }: ExtraMemberDetail) => (
               member && (
                 <div 
@@ -555,24 +605,14 @@ const CalendarView = ({
         }}
         components={{
           event: (props: any) => (
-            props.event.isWeekend ? (
-              <WeekendEvent
-                {...props}
-                event={props.event}
-                isAdmin={isAdmin}
-                extraDutyMembers={extraDutyMembers}
-                onAddExtraDuty={onAddExtraDuty}
-              />
-            ) : (
-              <CustomEvent
-                {...props}
-                event={props.event}
-                isAdmin={isAdmin}
-                onUpdateSchedule={onUpdateSchedule}
-                extraDutyMembers={extraDutyMembers}
-                onAddExtraDuty={onAddExtraDuty}
-              />
-            )
+            <DayEvent
+              {...props}
+              event={props.event}
+              isAdmin={isAdmin}
+              onUpdateSchedule={onUpdateSchedule}
+              extraDutyMembers={extraDutyMembers}
+              onAddExtraDuty={onAddExtraDuty}
+            />
           ),
         }}
         messages={{
@@ -583,6 +623,14 @@ const CalendarView = ({
           week: '周',
           day: '日',
           agenda: '议程',
+          allDay: '全天',
+          date: '日期',
+          time: '时间',
+          event: '事件',
+          work_week: '工作周',
+          yesterday: '昨天',
+          tomorrow: '明天',
+          noEventsInRange: '当前时间段没有事件',
         }}
         formats={{
           monthHeaderFormat: (date: Date) => format(date, 'yyyy年MM月', { locale: zhCN }),
@@ -593,6 +641,13 @@ const CalendarView = ({
               'yyyy年MM月dd日',
               { locale: zhCN }
             )}`,
+          dayFormat: (date: Date) => format(date, 'd', { locale: zhCN }),
+          weekdayFormat: (date: Date) => {
+            // 自定义星期格式，确保从周一开始
+            const weekdays = ['一', '二', '三', '四', '五', '六', '日'];
+            const day = getDay(date);
+            return weekdays[day === 0 ? 6 : day - 1];
+          },
         }}
       />
     </div>
