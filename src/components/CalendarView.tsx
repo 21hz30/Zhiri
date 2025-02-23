@@ -39,6 +39,28 @@ interface CalendarViewProps {
   onAddExtraDuty?: (date: Date) => void;
 }
 
+interface ExtraDutyMember {
+  memberId: string;
+  date: string;
+}
+
+interface ExtraMemberDetail {
+  member: {
+    id: string;
+    name: string;
+    groupId: string;
+  } | undefined;
+  group: {
+    id: string;
+    name: string;
+    members: Array<{
+      id: string;
+      name: string;
+      groupId: string;
+    }>;
+  } | undefined;
+}
+
 // 确认弹窗组件
 const ConfirmModal = ({ 
   isOpen, 
@@ -121,12 +143,24 @@ const CustomEvent = ({
   // 获取当前日期的额外值日人员
   const currentDateExtraMembers = extraDutyMembers?.filter(
     m => {
-      const isSameDate = m.date === event.start.toISOString();
-      console.log('Checking extra duty member:', {
-        memberDate: m.date,
-        eventDate: event.start.toISOString(),
+      // 将事件日期转换为当天开始时间
+      const eventDate = new Date(event.start);
+      eventDate.setHours(0, 0, 0, 0);
+      const eventDateStr = eventDate.toISOString();
+
+      // 将成员日期转换为当天开始时间
+      const memberDate = new Date(m.date);
+      memberDate.setHours(0, 0, 0, 0);
+      const memberDateStr = memberDate.toISOString();
+
+      const isSameDate = memberDateStr === eventDateStr;
+      
+      console.log('Comparing dates:', {
+        memberDate: memberDateStr,
+        eventDate: eventDateStr,
         isSameDate
       });
+      
       return isSameDate;
     }
   ) || [];
@@ -137,11 +171,13 @@ const CustomEvent = ({
       g.members.some(m => m.id === em.memberId)
     );
     const member = memberGroup?.members.find(m => m.id === em.memberId);
-    console.log('Extra duty member details:', {
+    
+    console.log('Found extra duty member:', {
       memberId: em.memberId,
-      foundMember: member,
-      foundGroup: memberGroup
+      memberName: member?.name,
+      groupName: memberGroup?.name
     });
+    
     return {
       member,
       group: memberGroup
@@ -151,8 +187,8 @@ const CustomEvent = ({
   // 添加调试日志
   console.log('Rendering event:', {
     date: event.start,
-    extraMembers: currentDateExtraMembers,
-    extraMemberDetails
+    extraMembers: currentDateExtraMembers.length,
+    extraMemberDetails: extraMemberDetails.length
   });
 
   const handleGroupChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -219,22 +255,22 @@ const CustomEvent = ({
         </div>
 
         {/* 原有值日组成员 */}
-        <div className="space-y-1.5">
+        <div className="space-y-0.5">
           {event.records.map((record: any) => (
             <div 
               key={record.member.id} 
-              className="flex items-center justify-between text-sm cursor-pointer hover:bg-gray-50 p-1 rounded"
+              className="flex items-center justify-between text-sm cursor-pointer hover:bg-gray-50 py-0.5 px-1 rounded"
               onClick={(e) => handleMemberClick(e, record.member)}
             >
-              <span className="font-medium whitespace-nowrap">{record.member.name}</span>
-              <span className="flex items-center gap-1 ml-2">
-                <span className="text-base">
+              <span className="font-medium whitespace-nowrap text-xs">{record.member.name}</span>
+              <span className="flex items-center gap-1">
+                <span className="text-sm">
                   {record.status === 'present' ? '✅' :
                    record.status === 'absent' ? '❌' :
                    record.status === 'late' ? '⚠️' : ''}
                 </span>
                 {record.penaltyDays ? (
-                  <span className="text-xs bg-red-500 text-white px-1 rounded whitespace-nowrap">
+                  <span className="text-[10px] bg-red-500 text-white px-1 rounded whitespace-nowrap">
                     +{record.penaltyDays}
                   </span>
                 ) : null}
@@ -245,21 +281,21 @@ const CustomEvent = ({
 
         {/* 额外值日人员 */}
         {extraMemberDetails.length > 0 && (
-          <div className="mt-2 pt-2 border-t border-gray-200">
-            <div className="text-xs text-gray-500 mb-1">额外值日人员</div>
-            <div className="space-y-1">
+          <div className="mt-1 pt-1 border-t border-gray-200">
+            <div className="text-[10px] text-gray-500 mb-0.5">额外值日人员</div>
+            <div className="space-y-0.5">
               {extraMemberDetails.map(({ member, group }) => (
                 member && (
                   <div 
                     key={member.id}
-                    className="flex items-center justify-between text-sm p-2 rounded bg-blue-50 hover:bg-blue-100"
+                    className="flex items-center justify-between text-sm py-0.5 px-1 rounded bg-blue-50 hover:bg-blue-100"
                     onClick={(e) => handleMemberClick(e, member)}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs px-2 py-0.5 bg-[#2a63b7] text-white rounded">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] px-1 py-0.5 bg-[#2a63b7] text-white rounded">
                         {group?.name}
                       </span>
-                      <span className="font-medium">{member.name}</span>
+                      <span className="font-medium text-xs">{member.name}</span>
                     </div>
                   </div>
                 )
@@ -275,12 +311,12 @@ const CustomEvent = ({
               e.stopPropagation();
               onAddExtraDuty(new Date(event.start));
             }}
-            className="mt-3 w-full text-sm bg-[#2a63b7] text-white py-2 px-4 rounded-md hover:bg-[#245091] flex items-center justify-center gap-2 transition-colors"
+            className="mt-1 w-full text-xs bg-[#2a63b7] text-white py-1 px-2 rounded-md hover:bg-[#245091] flex items-center justify-center gap-1 transition-colors"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            添加额外值日人员
+            添加值日人员
           </button>
         )}
       </div>
@@ -313,9 +349,9 @@ const CalendarView = ({
 
   // 将值日安排转换为日历事件格式
   const events = dutySchedule.flatMap(({ weekStart, group }) => {
-    // 生成这一周的工作日
+    // 生成这一周的所有日期（包括周末）
     const weekEvents = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 7; i++) {
       const currentDay = new Date(weekStart);
       currentDay.setDate(currentDay.getDate() + i);
       
@@ -324,61 +360,134 @@ const CalendarView = ({
         continue;
       }
       
-      // 获取当天的考勤记录
-      const dayRecords = group.members.map(member => {
-        const record = attendanceRecords.find(
-          r => r.memberId === member.id && r.date === currentDay.toISOString()
-        );
-        return {
-          member,
-          status: record?.status || 'pending',
-          score: record?.score,
-          penaltyDays: record?.penaltyDays,
-        };
-      });
+      // 判断是否为周末
+      const isWeekend = i >= 5;
+      
+      if (isWeekend) {
+        // 周末只创建一个空的事件容器
+        weekEvents.push({
+          id: `${currentDay.toISOString()}-weekend`,
+          title: '周末值日',
+          start: currentDay,
+          end: currentDay,
+          isWeekend: true,
+          records: [],
+        });
+      } else {
+        // 工作日显示正常的值日组
+        const dayRecords = group.members.map(member => {
+          const record = attendanceRecords.find(
+            r => r.memberId === member.id && r.date === currentDay.toISOString()
+          );
+          return {
+            member,
+            status: record?.status || 'pending',
+            score: record?.score,
+            penaltyDays: record?.penaltyDays,
+          };
+        });
 
-      weekEvents.push({
-        id: `${currentDay.toISOString()}-${group.id}`,
-        title: `${group.name}`,
-        start: currentDay,
-        end: currentDay,
-        group,
-        records: dayRecords,
-      });
+        weekEvents.push({
+          id: `${currentDay.toISOString()}-${group.id}`,
+          title: `${group.name}`,
+          start: currentDay,
+          end: currentDay,
+          group,
+          records: dayRecords,
+        });
+      }
     }
     return weekEvents;
   });
 
-  // 自定义事件渲染样式
-  const eventStyleGetter = (event: any) => {
-    const style = {
-      backgroundColor: 'white',
-      border: '1px solid #e5e7eb',
-      borderRadius: '4px',
-      height: '100%',
-      minHeight: '180px',
-      boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-    };
-    return { style };
+  // 自定义事件渲染组件
+  const WeekendEvent = ({ event, isAdmin, extraDutyMembers, onAddExtraDuty }: any) => {
+    // 获取当前日期的额外值日人员
+    const currentDateExtraMembers = extraDutyMembers?.filter((m: ExtraDutyMember) => {
+      const eventDate = new Date(event.start);
+      eventDate.setHours(0, 0, 0, 0);
+      const memberDate = new Date(m.date);
+      memberDate.setHours(0, 0, 0, 0);
+      return eventDate.toISOString() === memberDate.toISOString();
+    }) || [];
+
+    // 获取额外值日人员的详细信息
+    const extraMemberDetails = currentDateExtraMembers.map((em: ExtraDutyMember) => {
+      const memberGroup = groups.find(g => 
+        g.members.some(m => m.id === em.memberId)
+      );
+      const member = memberGroup?.members.find(m => m.id === em.memberId);
+      return {
+        member,
+        group: memberGroup
+      };
+    });
+
+    return (
+      <div className="p-2 h-full bg-gray-50">
+        <div className="font-bold text-base mb-2 text-gray-500">
+          {format(event.start, 'EEEE', { locale: zhCN })}值日
+        </div>
+
+        {/* 值日人员列表 */}
+        {extraMemberDetails.length > 0 && (
+          <div className="space-y-1">
+            {extraMemberDetails.map(({ member, group }: ExtraMemberDetail) => (
+              member && (
+                <div 
+                  key={member.id}
+                  className="flex items-center justify-between text-sm p-1 rounded bg-white"
+                >
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] px-1 py-0.5 bg-gray-200 text-gray-700 rounded">
+                      {group?.name}
+                    </span>
+                    <span className="font-medium text-xs">{member.name}</span>
+                  </div>
+                </div>
+              )
+            ))}
+          </div>
+        )}
+
+        {/* 添加值日人员按钮 */}
+        {isAdmin && onAddExtraDuty && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddExtraDuty(new Date(event.start));
+            }}
+            className="mt-2 w-full text-xs bg-gray-500 text-white py-1 px-2 rounded-md hover:bg-gray-600 flex items-center justify-center gap-1 transition-colors"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            添加值日人员
+          </button>
+        )}
+      </div>
+    );
   };
 
   return (
-    <div className="h-[1000px] bg-white rounded-lg shadow p-4">
+    <div className="h-[1200px] bg-white rounded-lg shadow p-4">
       <style jsx global>{`
         .rbc-calendar {
-          min-height: 900px;
+          min-height: 1100px;
         }
         .rbc-month-view {
           flex: 1;
         }
         .rbc-month-row {
-          min-height: 180px !important;
+          min-height: 220px !important;
         }
         .rbc-row-content {
           height: 100%;
         }
         .rbc-event {
           padding: 0 !important;
+          max-height: none !important;
+          height: auto !important;
         }
         /* 隐藏事件图标 */
         .rbc-event-content:before {
@@ -391,12 +500,20 @@ const CalendarView = ({
         .rbc-event {
           background-color: white !important;
           color: #374151 !important;
+          overflow: visible !important;
         }
         .rbc-event.rbc-selected {
           background-color: #f3f4f6 !important;
         }
         .rbc-day-bg.rbc-today {
           background-color: #f3f4f6 !important;
+        }
+        .rbc-row-segment {
+          padding: 0 !important;
+        }
+        .rbc-event {
+          margin: 0 !important;
+          width: 100% !important;
         }
         /* 下拉框样式 */
         select {
@@ -410,18 +527,22 @@ const CalendarView = ({
       `}</style>
       <Calendar
         localizer={localizer}
-        events={events.map(event => ({
-          ...event,
-          onSelectDate: (date: Date, member: any) => {
-            if (isAdmin && onSelectDate) {
-              onSelectDate(date);
-            }
-          }
-        }))}
+        events={events}
         startAccessor="start"
         endAccessor="end"
         style={{ height: '100%' }}
-        eventPropGetter={eventStyleGetter}
+        eventPropGetter={(event: any) => ({
+          style: {
+            backgroundColor: 'white',
+            border: '1px solid #e5e7eb',
+            borderRadius: '4px',
+            height: 'auto',
+            minHeight: '200px',
+            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+            margin: 0,
+            padding: 0,
+          }
+        })}
         views={['month']}
         defaultView="month"
         date={currentDate}
@@ -434,14 +555,24 @@ const CalendarView = ({
         }}
         components={{
           event: (props: any) => (
-            <CustomEvent
-              {...props}
-              event={props.event}
-              isAdmin={isAdmin}
-              onUpdateSchedule={onUpdateSchedule}
-              extraDutyMembers={extraDutyMembers}
-              onAddExtraDuty={onAddExtraDuty}
-            />
+            props.event.isWeekend ? (
+              <WeekendEvent
+                {...props}
+                event={props.event}
+                isAdmin={isAdmin}
+                extraDutyMembers={extraDutyMembers}
+                onAddExtraDuty={onAddExtraDuty}
+              />
+            ) : (
+              <CustomEvent
+                {...props}
+                event={props.event}
+                isAdmin={isAdmin}
+                onUpdateSchedule={onUpdateSchedule}
+                extraDutyMembers={extraDutyMembers}
+                onAddExtraDuty={onAddExtraDuty}
+              />
+            )
           ),
         }}
         messages={{
